@@ -1,0 +1,13 @@
+name = "FoodWebs"
+uuid = "eb5e2042-3c7d-468c-9da2-348e0f8d9fea"
+authors = ["Tom Clegg", "Thilo Gross"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
