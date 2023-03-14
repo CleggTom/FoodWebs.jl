@@ -68,12 +68,14 @@ Randomly assembles a food web from a set of species of size N at temperature T. 
 """
 function web(sp_vec::Vector{Sp}, N::Int64, T::Float64, T_range::Float64)
     #select sp based on Temp range...
-    indx = findall([s.Tpk < T + T_range && s.Tpk > T - T_range for s = sp_vec])
+    indx = findall([s.Tpk < (T + T_range) && s.Tpk > T - T_range for s = sp_vec])
     
     N_T = min(length(indx),N)
 
+    sp_vec_temp = sp_vec[indx]
+
     #sample
-    sp_vec_indx = sp_vec[sortperm(rand(length(indx)))[1:N_T]]
+    sp_vec_indx = sp_vec_temp[sortperm(rand(length(indx)))[1:N_T]]
 
     community = web(sp_vec_indx)
 
