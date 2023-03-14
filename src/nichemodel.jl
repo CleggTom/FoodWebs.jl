@@ -50,7 +50,9 @@ function web(sp_vec::Vector{Sp})
         for (j,sp_j) = enumerate(sp_vec)
             if sp_j.n < (sp_i.c + (sp_i.r/2))
                 if  sp_j.n > (sp_i.c - (sp_i.r/2))
-                    A[i,j] = 1
+                    if i ≠ j
+                        A[i,j] = 1
+                    end
                 end
             end
         end
