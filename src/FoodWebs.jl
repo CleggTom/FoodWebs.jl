@@ -1,5 +1,10 @@
 module FoodWebs
 
-# Write your package code here.
+using Distributions
+using UUIDs
+using LinearAlgebra
+
+include("nichemodel.jl")
+include("generalisedjacobian.jl")
 
 end
