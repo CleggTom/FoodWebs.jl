@@ -25,7 +25,7 @@ function species(C::Float64)
     #extra params
     Tpk = rand()
     uuid = UUIDs.uuid1()
-    return(Species(n,r,c,Tpk,uuid))
+    return Species(n,r,c,Tpk,uuid)
 end
 
 """
@@ -52,14 +52,14 @@ function isequalcommunity(a::Community, b::Community)
     return getfield.(Ref(a), com_keys) == getfield.(Ref(b), com_keys) 
 end
 
-Base.show(io::IO, com::Community) = print(io, "Community with ", length(com.sp)," species")
+Base.show(io::IO, com::Community) = print(io, "Community N:", length(com.sp)," T:", com.T )
 
 """
-    community(sp_vec::Vector{Sp}, T::Float64)
+    community(sp_vec::Vector{Species}, T::Float64)
 
 Generates an adjacency matrix for a given set of species using the niche model. 
 """
-function community(sp_vec::Vector{Species}, T::Float64)
+function community(sp_vec::Vector{Species}, T::Float64 = 0.5)
     N = length(sp_vec)
     A = zeros(N,N)
 
@@ -77,11 +77,11 @@ function community(sp_vec::Vector{Species}, T::Float64)
 
     ids = [x.id for x = sp_vec]
 
-    return(Community(A, sp_vec, ids, T))
+    return Community(A, sp_vec, ids, T)
 end
 
 """
-    community(sp_vec::Vector{Sp}, N::Int64, T::Float64, T_range::Float64)
+    community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float64)
 
 Randomly assembles a food web from a set of species of size N at temperature T. Species are selected within a range of T_range. Returns adjacency matrix. 
 """
@@ -96,9 +96,7 @@ function community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float
     #sample
     sp_vec_indx = sp_vec_temp[sortperm(rand(length(indx)))[1:N_T]]
 
-    community = community(sp_vec_indx)
-
-    return(community)
+    return community(sp_vec_indx, T)
 end
 
 """
@@ -119,7 +117,7 @@ function add_species(com::Community, sp::Species)
     # get new sp list
     sp_vec_new = vcat(com.sp, [sp])
 
-    return(community(sp_vec_new, com.T))
+    return community(sp_vec_new, com.T)
 end
 
 """
@@ -128,11 +126,11 @@ end
 Remove species identified with `id`.
 """
 function remove_species(com::Community, id::UUID)
-    @assert id in com.ids
+    @assert id in com.ids "id not in community"
 
     indx = com.ids .!= id
 
-    return(community(com.sp[indx], com.T))
+    return community(com.sp[indx], com.T)
 end
 
 """
@@ -141,7 +139,7 @@ end
 Remove species `sp`
 """
 function remove_species(com::Community, sp::Species)
-    return(remove_species(com, sp.id))
+    return remove_species(com, sp.id)
 end
 
 """
@@ -150,13 +148,14 @@ end
 Move species identified by `id` from `com1` to `com2`
 """
 function move_species(com1::Community,com2::Community,id::UUID)
+    @assert id in com1.ids "no species with id in com1"
     #add to community 2
     com2_new = add_species(com2, com1.sp[findfirst(com1.ids .== id)])
 
     #remove from community 1
     com1_new = remove_species(com1, id)
 
-    return(com1_new, com2_new)
+    return com1_new, com2_new
 end
 
 
@@ -166,6 +165,6 @@ end
 Move `sp`` from `com1` to `com2`. note that the species `sp` must be present in `com1`
 """
 function move_species(com1::Community,com2::Community,sp::Species)
-    @assert sp in com1.sp
-    return(move_species(com1,com2,sp.id))
+    @assert sp in com1.sp "sp not in com1"
+    return move_species(com1,com2,sp.id)
 end
