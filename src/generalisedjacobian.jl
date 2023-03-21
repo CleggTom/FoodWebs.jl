@@ -120,6 +120,8 @@ function generalised_jacobian(p::GeneralisedParameters)
     return J 
 end
 
+
+#Calculate stablilty
 """
     max_real_eigval(J)
 
@@ -133,6 +135,7 @@ function max_real_eigval(J)
         return(λ)
     end
 end
+
 
 """
     communtiy_stability(J,p::GeneralisedParameters)
@@ -174,7 +177,6 @@ Calculates real part of the leading eigenvalue directly from a Communtiy object.
 function communtiy_stability(c::Community)
     #make params
     J = zeros(size(c.A))
-    p = generalised_parameters(c)
     return communtiy_stability!(J, p)
 end
 
@@ -196,8 +198,10 @@ end
 function proportion_stable_webs(mc::MetaCommunity,N_trials::Int = 100)
     props = zeros(size(mc.coms))
     for (i,c) = enumerate(mc.coms)
-        J = zeros(size(c.A))
-        props[i] = proportion_stable_webs(J,c,N_trials)
+        if c.N > 0
+            J = zeros(size(c.A))
+            props[i] = proportion_stable_webs(J,c,N_trials)
+        end
     end
     return props 
 end
