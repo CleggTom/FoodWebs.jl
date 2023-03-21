@@ -154,7 +154,7 @@ function random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
     #skip if nowhere to disperse to
     if all(w .== 0.0)
         # print("cant disperse")
-        return
+        return 0,0
     end
 
     to = sample(1:length(mc.T_mat), Weights(w))
@@ -163,7 +163,7 @@ function random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
         move_sp_meta!(mc, from, to, id)
     end
     
-    return(from, to)
+    return from, to
 end
 
 
