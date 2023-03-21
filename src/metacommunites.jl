@@ -121,8 +121,10 @@ end
 Randomly selects and moves a single Species between webs in a MetaCommunity. The movement is split into two stages:
 
 1) Select Species
-Select the species to move based on relative body size `n`. This is done by sampling with weighted probablities set to 
+Select the species to move based on relative body size `n`. This is done by sampling with weighted probablities set to 1 - exp(-n ^ 0.75)
 
+2) Select site
+Select the site the species will disperse to. This is done by considering the distance matrix 
 """
 function random_dispersal(mc)
     #sample sp to disperse
@@ -138,7 +140,7 @@ function random_dispersal(mc)
     w = exp.(-λ * mc.D[from,:] * 2)
 
     if all(w .== 0.0)
-        print("cant disperse")
+        # print("cant disperse")
         return
     end
 
