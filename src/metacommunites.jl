@@ -126,19 +126,32 @@ Select the species to move based on relative body size `n`. This is done by samp
 2) Select site
 Select the site the species will disperse to. This is done by considering the distance matrix 
 """
-function random_dispersal(mc)
+function random_dispersal(mc, p_dispersal = :weighted, d_dispersal = :weighted)
+    @assert p_dispersal ∈ [:weigted, :random]
+    @assert d_dispersal ∈ [:weigted, :random]
+
     #sample sp to disperse
-    id = sample(mc.sp_id,  Weights([1 - exp(-sp.n ^ 0.75) for sp = mc.sp]))
+    if p_dispersal == :weighted
+        id = sample(mc.sp_id,  Weights([1 - exp(-sp.n ^ 0.75) for sp = mc.sp]))
+    elseif p_dispersal == :random
+        id = sample(mc.sp_id)
+    end
 
     #get from location
     from = sample(mc.sp_loc[id])
 
-    #get to
-    #distance rate
-    n = mc.sp[findall(id .== mc.sp_id)[1]].n
-    λ = (1 - n)^(0.75)
-    w = exp.(-λ * mc.D[from,:] * 2)
+    if d_dispersal == :weighted
+        #get to
+        #distance rate
+        n = mc.sp[findall(id .== mc.sp_id)[1]].n
+        λ = (1 - n)^(0.75)
+        w = exp.(-λ * mc.D[from,:] * 2)
 
+    elseif d_dispersal == :random
+        w = .!isinf.(mc.D[from,:])
+    end
+
+    #skip if nowhere to disperse to
     if all(w .== 0.0)
         # print("cant disperse")
         return
