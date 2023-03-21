@@ -140,6 +140,7 @@ end
 Get the real part of the leading eigenvalue from parameter set p. J is provided to avoid allocation
 """
 function communtiy_stability(J,p::GeneralisedParameters)
+    @assert p.N > 0
     generalised_jacobian!(J,p::GeneralisedParameters)
     return max_real_eigval(J) 
 end
@@ -172,7 +173,7 @@ Calculates real part of the leading eigenvalue directly from a Communtiy object.
 """
 function communtiy_stability(c::Community)
     #make params
-    J = zeros(size(p.A))
+    J = zeros(size(c.A))
     p = generalised_parameters(c)
     return communtiy_stability!(J, p)
 end
