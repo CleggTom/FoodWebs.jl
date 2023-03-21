@@ -127,8 +127,8 @@ Select the species to move based on relative body size `n`. This is done by samp
 Select the site the species will disperse to. This is done by considering the distance matrix 
 """
 function random_dispersal(mc, p_dispersal = :weighted, d_dispersal = :weighted)
-    @assert p_dispersal ∈ [:weigted, :random]
-    @assert d_dispersal ∈ [:weigted, :random]
+    @assert p_dispersal ∈ [:weighted, :random]
+    @assert d_dispersal ∈ [:weighted, :random]
 
     #sample sp to disperse
     if p_dispersal == :weighted
