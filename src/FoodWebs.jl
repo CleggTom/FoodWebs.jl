@@ -6,7 +6,7 @@ using LinearAlgebra
 using StatsBase
 
 include("nichemodel.jl")
-include("generalisedjacobian.jl")
 include("metacommunites.jl")
+include("generalisedjacobian.jl")
 
 end
