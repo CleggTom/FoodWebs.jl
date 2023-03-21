@@ -177,7 +177,7 @@ Calculates real part of the leading eigenvalue directly from a Communtiy object.
 function communtiy_stability(c::Community)
     #make params
     J = zeros(size(c.A))
-    return communtiy_stability!(J, p)
+    return communtiy_stability(J, c)
 end
 
 
