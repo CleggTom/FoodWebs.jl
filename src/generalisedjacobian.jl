@@ -70,12 +70,12 @@ end
 
 
 """
-    generalised_paramers(com::Community)
+    generalised_parameters(com::Community)
 
 generate parameters directly from a Community object
 """
 function generalised_parameters(com::Community)
-    generalised_paramers(com.A, [s.n for s = com.sp])
+    generalised_parameters(com.A, [s.n for s = com.sp])
 end
 
 
