@@ -53,13 +53,13 @@ function metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float6
     return MetaCommunity(coms, D, T_mat, sp_vec_mc, id_vec_mc, sp_dict)
 end
 
-function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9)
+function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9, N_trials::Int = 100)
     mc = metacommuntiy(sp_vec, N, T_mat, T_range)
-    psw = proportion_stable_webs(mc ,N = 100)
+    psw = proportion_stable_webs(mc , N_trials)
 
     while any(psw .< psw_threshold)
         mc = metacommuntiy(sp_vec, N, T_mat, T_range)
-        psw = proportion_stable_webs(mc,N = 100)
+        psw = proportion_stable_webs(mc, N_trials)
     end
 
     return(mc)

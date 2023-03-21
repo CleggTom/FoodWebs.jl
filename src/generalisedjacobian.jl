@@ -187,16 +187,16 @@ end
 
 Calculates the proportion stable parameter configurations for a Community.   
 """
-function proportion_stable_webs(c::Community, N::Int = 100)
+function proportion_stable_webs(c::Community, N_trials::Int = 100)
     J = zeros(size(c.A))
-    sum([communtiy_stability(J, c) for i = 1:N] .< 0) / N
+    sum([communtiy_stability(J, c) for i = 1:N_trials] .< 0) / N_trials
 end
  
-function proportion_stable_webs(mc::MetaCommunity,N::Int = 100)
+function proportion_stable_webs(mc::MetaCommunity,N_trials::Int = 100)
     props = zeros(size(mc.coms))
     for (i,c) = enumerate(mc.coms)
         J = zeros(size(c.A))
-        props[i] = proportion_stable_webs(J,c,N)
+        props[i] = proportion_stable_webs(J,c,N_trials)
     end
     return props 
 end
