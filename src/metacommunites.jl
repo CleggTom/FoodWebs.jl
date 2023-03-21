@@ -116,7 +116,7 @@ end
 
 #single random movement
 """
-    random_dispersal(mc)
+    random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
 
 Randomly selects and moves a single Species between webs in a MetaCommunity. The movement is split into two stages:
 
@@ -126,7 +126,7 @@ Select the species to move based on relative body size `n`. This is done by samp
 2) Select site
 Select the site the species will disperse to. This is done by considering the distance matrix 
 """
-function random_dispersal(mc, p_dispersal = :weighted, d_dispersal = :weighted)
+function random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
     @assert p_dispersal ∈ [:weighted, :random]
     @assert d_dispersal ∈ [:weighted, :random]
 
@@ -163,6 +163,7 @@ function random_dispersal(mc, p_dispersal = :weighted, d_dispersal = :weighted)
         move_sp_meta!(mc, from, to, id)
     end
     
+    return(from, to)
 end
 
 
