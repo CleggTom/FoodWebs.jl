@@ -198,7 +198,7 @@ end
 function proportion_stable_webs(mc::MetaCommunity,N_trials::Int = 100)
     props = zeros(size(mc.coms))
     for (i,c) = enumerate(mc.coms)
-        if c.N > 0
+        if length(c.sp) > 0
             J = zeros(size(c.A))
             props[i] = proportion_stable_webs(J,c,N_trials)
         end
