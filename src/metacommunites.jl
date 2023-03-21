@@ -16,14 +16,15 @@ Base.show(io::IO, mc::MetaCommunity) =  print(io, "MetaCommunity M:", length(mc.
 
 #constructers
 """
-    metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64)
+    metacommuntiy(coms::Vector{Community}, N::Int64, T_mat, T_range::Float64)
 
-Creates a MetaCommunity object from species in `sp_vec` with each community of size N. Community temperatures are defined by the `T_mat` argument. 
+Creates a MetaCommunity object from communities in `coms`.
 """
-function metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64)
-    #generate communties
-    coms = [community(sp_vec, N, T, T_range) for T = T_mat]
-    
+function metacommuntiy(coms::Array{Community})
+    #get sp_vector
+    sp_vec = unique(vcat([x.sp for x = coms]...))
+    T_mat = [c.T for c = coms]
+
     #generate Sp location dictionaries
     sp_dict = Dict{UUID, Vector{Int}}()
     for i = eachindex(coms)
@@ -36,6 +37,7 @@ function metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float6
         end
     end
 
+    #generate temperature distance matrix
     D = zeros(length(T_mat), length(T_mat))
     for i = 1:length(T_mat)
         for j = 1:length(T_mat)
@@ -53,14 +55,46 @@ function metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float6
     return MetaCommunity(coms, D, T_mat, sp_vec_mc, id_vec_mc, sp_dict)
 end
 
-function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9, N_trials::Int = 100)
+
+
+"""
+    metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64)
+
+Generate metacommuntiy from a set of species with community size N and temperatures T_mat. Sampling is done with species T_range unsits of T. 
+"""
+function metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64)
+    coms = [community(sp_vec, N, T, T_range) for T = T_mat]
+
+    return metacommuntiy(coms)
+end
+
+
+"""
+    stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9, N_trials::Int = 100)
+
+Contstruct a stable metacommunity by resampling communties till they are stable. The metacommunity is generated from sp_vec. 
+"""
+function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100)
+    #inital communty generation
     mc = metacommuntiy(sp_vec, N, T_mat, T_range)
     psw = proportion_stable_webs(mc , N_trials)
+    coms = mc.coms
 
-    while any(psw .< psw_threshold)
-        mc = metacommuntiy(sp_vec, N, T_mat, T_range)
-        psw = proportion_stable_webs(mc, N_trials)
+    #resample unstable communties
+    k = 0
+    while (k < max_draws) && any(psw .< psw_threshold)
+       #replace unstable communtiy
+        for i = eachindex(psw)
+            if psw[i] .< psw_threshold
+                coms[i] = community(sp_vec, N , coms[i].T, T_range) 
+                psw[i] = proportion_stable_webs(coms[i], N_trials)
+            end
+        end
+        println("draw:", k, " psw: ", psw)
+        k += 1
     end
+
+    mc = metacommuntiy(coms)
 
     return(mc)
 end
