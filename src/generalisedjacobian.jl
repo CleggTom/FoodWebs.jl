@@ -200,3 +200,15 @@ function proportion_stable_webs(mc::MetaCommunity,N::Int = 100)
     end
     return props 
 end
+
+function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9)
+    mc = metacommuntiy(sp_vec, N, T_mat, T_range)
+    psw = proportion_stable_webs(mc ,N = 100)
+
+    while any(psw .< psw_threshold)
+        mc = metacommuntiy(sp_vec, N, T_mat, T_range)
+        psw = proportion_stable_webs(mc,N = 100)
+    end
+
+    return(mc)
+end
