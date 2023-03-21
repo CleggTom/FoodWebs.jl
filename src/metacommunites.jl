@@ -143,19 +143,33 @@ function random_dispersal(mc)
     end
 
     to = sample(1:length(mc.T_mat), Weights(w))
-    print("moving sp: ",id, " from ",from, " to ", to)
-    @assert from < to "Oh No"
+
     if !(id in mc.coms[to].ids)
         move_sp_meta!(mc, from, to, id)
     end
     
 end
 
-function check_metacommunity(mc)
+
+"""
+    test_metacommunity(mc)
+
+Tests to see if the sp_loc dictionary is correct (i.e. all species are where they should be).
+"""
+function check_metacommunity(mc::MetaCommunity)
     for (i,sp) in enumerate(mc.sp)
         coms = mc.sp_loc[sp.id]
         for c in coms
             @assert sp in mc.coms[c].sp "$c $sp"
         end
     end
+end
+
+"""
+    get_richness(mc::MetaCommunity)
+
+Gets vector of richness in a metacommuntiy
+"""
+function get_richness(mc::MetaCommunity)
+    [length(c.sp) for c = mc.coms]
 end
