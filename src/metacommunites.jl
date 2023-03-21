@@ -53,6 +53,18 @@ function metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float6
     return MetaCommunity(coms, D, T_mat, sp_vec_mc, id_vec_mc, sp_dict)
 end
 
+function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9)
+    mc = metacommuntiy(sp_vec, N, T_mat, T_range)
+    psw = proportion_stable_webs(mc ,N = 100)
+
+    while any(psw .< psw_threshold)
+        mc = metacommuntiy(sp_vec, N, T_mat, T_range)
+        psw = proportion_stable_webs(mc,N = 100)
+    end
+
+    return(mc)
+end
+
 #functions
 """
     move_sp_meta!(mc::MetaCommunity, a, b, id)
@@ -104,16 +116,6 @@ function random_dispersal(mc)
     end
     
 end
-
-sp_vec = [species(0.1) for i = 1:5000]
-T_mat = range(0,1, length = 10)
-T_range = 0.1
-N = 100
-
-mc = metacommuntiy(sp_vec, N, T_mat, T_range)
-
-@time proportion_stable_webs(mc, 10)
-#check sp locations
 
 function check_metacommunity(mc)
     for (i,sp) in enumerate(mc.sp)
