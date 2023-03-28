@@ -168,7 +168,7 @@ end
 
 
 """
-    multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :w; K = 5)
+    multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
 
 Disperse multiple species at once. Modifies a MetaCommunity object in place. The process is split into two stages:
 1) Species selection
