@@ -184,7 +184,7 @@ function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
         ids = sample(mc.sp_id,  Weights([1 - exp(-sp.n ^ 0.75) for sp = mc.sp]), K)
      elseif p_dispersal == :p
         p = [1 - exp(-sp.n ^ 0.75) for sp = mc.sp]
-        ids = findall(rand(length(p)) .< p)
+        ids = mc.sp_id[findall(rand(length(p)) .< p)]
     elseif p_dispersal == :r
         ids = sample(mc.sp_id, K)
     end
@@ -221,6 +221,11 @@ function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
     end
 
 end
+
+sp_vec = [species(0.3) for i = 1:100]
+mc = metacommuntiy(sp_vec, 10, range(0,1,length = 10), 0.1)
+
+multiple_dispersal!(mc, d_dispersal = :p)
 
 """
     test_metacommunity(mc)
