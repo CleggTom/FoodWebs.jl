@@ -126,28 +126,28 @@ Select the species to move based on relative body size `n`. This is done by samp
 2) Select site
 Select the site the species will disperse to. This is done by considering the distance matrix 
 """
-function random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
-    @assert p_dispersal ∈ [:weighted, :random]
-    @assert d_dispersal ∈ [:weighted, :random]
+function random_dispersal!(mc; p_dispersal = :p, d_dispersal = :p)
+    @assert p_dispersal ∈ [:p, :r]
+    @assert d_dispersal ∈ [:p, :r]
 
     #sample sp to disperse
-    if p_dispersal == :weighted
+    if p_dispersal == :p
         id = sample(mc.sp_id,  Weights([1 - exp(-sp.n ^ 0.75) for sp = mc.sp]))
-    elseif p_dispersal == :random
+    elseif p_dispersal == :r
         id = sample(mc.sp_id)
     end
 
     #get from location
     from = sample(mc.sp_loc[id])
 
-    if d_dispersal == :weighted
+    if d_dispersal == :p
         #get to
         #distance rate
         n = mc.sp[findall(id .== mc.sp_id)[1]].n
         λ = (1 - n)^(0.75)
         w = exp.(-λ * mc.D[from,:] * 2)
 
-    elseif d_dispersal == :random
+    elseif d_dispersal == :r
         w = .!isinf.(mc.D[from,:])
     end
 
@@ -167,7 +167,15 @@ function random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
 end
 
 
-function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :w; K = 5)
+"""
+    multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :w; K = 5)
+
+Disperse multiple species at once. Modifies a MetaCommunity object in place. The process is split into two stages:
+1) Species selection
+
+2) Communtiy selection
+"""
+function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :w, K = 5)
     @assert p_dispersal ∈ [:k, :p, :r]
     @assert d_dispersal ∈ [:p, :r]
 
