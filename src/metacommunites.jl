@@ -216,16 +216,11 @@ function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
 
         #if sp is not there add it
         if !(ids[k] in mc.coms[to].ids)
-            mc.coms[to] = add_species(mc.coms[to], mc.sp[findall(ids[k] .== mc.sp_id)[1]] )
+            move_sp_meta!(mc, from[k], to, ids[k])
         end
     end
 
 end
-
-sp_vec = [species(0.3) for i = 1:100]
-mc = metacommuntiy(sp_vec, 10, range(0,1,length = 10), 0.1)
-
-multiple_dispersal!(mc, d_dispersal = :p)
 
 """
     test_metacommunity(mc)
