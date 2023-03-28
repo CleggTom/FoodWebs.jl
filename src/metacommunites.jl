@@ -70,7 +70,7 @@ end
 
 
 """
-    stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9, N_trials::Int = 100)
+    stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100)
 
 Contstruct a stable metacommunity by resampling communties till they are stable. The metacommunity is generated from sp_vec. 
 """
@@ -164,6 +164,51 @@ function random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
     end
     
     return from, to
+end
+
+
+function K_dispersals!(mc, K, p_dispersal = :weighted, d_dispersal = :weighted)
+    @assert p_dispersal ∈ [:weighted, :random]
+    @assert d_dispersal ∈ [:weighted, :random]
+
+    #sample sp to disperse
+     if p_dispersal == :weighted
+        ids = sample(mc.sp_id,  Weights([1 - exp(-sp.n ^ 0.75) for sp = mc.sp]), K)
+    elseif p_dispersal == :random
+        ids = sample(mc.sp_id, K)
+    end
+
+    #get from locations
+    from = sample.(get.(Ref(mc.sp_loc), ids, 0))
+    
+    if d_dispersal == :weighted
+        #get body sizes
+        n = [mc.sp[findall(id .== mc.sp_id)[1]].n for id = ids]
+        #distance rates
+        λs = (1 .- n).^(0.75)
+        #convert to weights
+        ws = Array(hcat([exp.(-λ * mc.D[from[i],:] * 2) for (i,λ) = enumerate(λs)]...)')
+    elseif d_dispersal == :random
+        #randomly sample feasible
+        ws = ones(size(mc.D))
+    end
+
+    #loop over species
+    for k = 1:K
+        #skip if no dispersal is possible
+        if all(ws[k,:] .== 0)
+            continue
+        end
+
+        #sample destination
+        to = sample(1:length(mc.T_mat), Weights(ws[k,:]))
+
+        #if sp is not there add it
+        if !(ids[k] in mc.coms[to].ids)
+            mc.coms[to] = add_species(mc.coms[to], mc.sp[findall(ids[k] .== mc.sp_id)[1]] )
+        end
+    end
+
 end
 
 
