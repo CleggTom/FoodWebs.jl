@@ -167,15 +167,63 @@ function random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
 end
 
 
-function K_dispersals!(mc, K, p_dispersal = :weighted, d_dispersal = :weighted)
+function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :w; K = 5)
+    @assert p_dispersal ∈ [:k, :p, :r]
+    @assert d_dispersal ∈ [:p, :r]
+
+    #sample sp to disperse
+     if p_dispersal == :k
+        ids = sample(mc.sp_id,  Weights([1 - exp(-sp.n ^ 0.75) for sp = mc.sp]), K)
+     elseif p_dispersal == :p
+        p = [1 - exp(-sp.n ^ 0.75) for sp = mc.sp]
+        ids = findall(rand(length(p)) .< p)
+    elseif p_dispersal == :r
+        ids = sample(mc.sp_id, K)
+    end
+
+    #get from locations
+    from = sample.(get.(Ref(mc.sp_loc), ids, 0))
+    
+    if d_dispersal == :p
+        #get body sizes
+        n = [mc.sp[findall(id .== mc.sp_id)[1]].n for id = ids]
+        #distance rates
+        λs = (1 .- n).^(0.75)
+        #convert to weights
+        ws = Array(hcat([exp.(-λ * mc.D[from[i],:] * 2) for (i,λ) = enumerate(λs)]...)')
+    elseif d_dispersal == :r
+        #randomly sample feasible
+        ws = ones(size(mc.D))
+    end
+
+    #loop over species
+    for k = 1:K
+        #skip if no dispersal is possible
+        if all(ws[k,:] .== 0)
+            continue
+        end
+
+        #sample destination
+        to = sample(1:length(mc.T_mat), Weights(ws[k,:]))
+
+        #if sp is not there add it
+        if !(ids[k] in mc.coms[to].ids)
+            mc.coms[to] = add_species(mc.coms[to], mc.sp[findall(ids[k] .== mc.sp_id)[1]] )
+        end
+    end
+
+end
+
+function probabilistic_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
     @assert p_dispersal ∈ [:weighted, :random]
     @assert d_dispersal ∈ [:weighted, :random]
 
     #sample sp to disperse
      if p_dispersal == :weighted
-        ids = sample(mc.sp_id,  Weights([1 - exp(-sp.n ^ 0.75) for sp = mc.sp]), K)
+        p = [1 - exp(-sp.n ^ 0.75) for sp = mc.sp]
+        ids = findall(rand(length(p)) .< p)
     elseif p_dispersal == :random
-        ids = sample(mc.sp_id, K)
+        ids = findall(rand(length(p)) .< 0.5)
     end
 
     #get from locations
