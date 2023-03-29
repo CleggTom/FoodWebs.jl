@@ -38,6 +38,7 @@ struct Community
     sp::Vector{Species}
     ids::Vector{UUID}
     T::Float64
+    R::Float64
 end
 
 """
@@ -55,11 +56,11 @@ end
 Base.show(io::IO, com::Community) = print(io, "Community N:", length(com.sp)," T:", com.T )
 
 """
-    community(sp_vec::Vector{Species}, T::Float64)
+    community(sp_vec::Vector{Species}, T::Float64 = 0.5, R::Float64 = 42)
 
 Generates an adjacency matrix for a given set of species using the niche model. 
 """
-function community(sp_vec::Vector{Species}, T::Float64 = 0.5)
+function community(sp_vec::Vector{Species}, T::Float64 = 0.5, R::Float64 = 42)
     N = length(sp_vec)
     A = zeros(N,N)
 
@@ -77,15 +78,15 @@ function community(sp_vec::Vector{Species}, T::Float64 = 0.5)
 
     ids = [x.id for x = sp_vec]
 
-    return Community(A, sp_vec, ids, T)
+    return Community(A, sp_vec, ids, T, R)
 end
 
 """
-    community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float64)
+    community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float64, R::Float64)
 
 Randomly assembles a food web from a set of species of size N at temperature T. Species are selected within a range of T_range. Returns adjacency matrix. 
 """
-function community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float64)
+function community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float64, R::Float64)
     #select sp based on Temp range...
     indx = findall([s.Tpk < (T + T_range) && s.Tpk > T - T_range for s = sp_vec])
     
@@ -96,7 +97,7 @@ function community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float
     #sample
     sp_vec_indx = sp_vec_temp[sortperm(rand(length(indx)))[1:N_T]]
 
-    return community(sp_vec_indx, T)
+    return community(sp_vec_indx, T, R)
 end
 
 """
@@ -117,7 +118,7 @@ function add_species(com::Community, sp::Species)
     # get new sp list
     sp_vec_new = vcat(com.sp, [sp])
 
-    return community(sp_vec_new, com.T)
+    return community(sp_vec_new, com.T, com.R)
 end
 
 """
@@ -130,7 +131,7 @@ function remove_species(com::Community, id::UUID)
 
     indx = com.ids .!= id
 
-    return community(com.sp[indx], com.T)
+    return community(com.sp[indx], com.T, com.R)
 end
 
 """

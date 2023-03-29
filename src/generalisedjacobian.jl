@@ -33,10 +33,10 @@ end
 
 Randomly samples a set of generalised parameters from a given interaction matrix and set of niches 
 """
-function generalised_parameters(A,n)
+function generalised_parameters(A,n,R)
     N = size(A)[1]
     #scale
-    α = n .^ (-0.25)
+    α = (R .^ n) .^ (-0.25)
 
     β = zeros(N,N)
     χ = zeros(N,N)
@@ -75,7 +75,7 @@ end
 generate parameters directly from a Community object
 """
 function generalised_parameters(com::Community)
-    generalised_parameters(com.A, [s.n for s = com.sp])
+    generalised_parameters(com.A, [s.n for s = com.sp], com.R)
 end
 
 
