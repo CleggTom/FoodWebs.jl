@@ -78,7 +78,7 @@ end
 
 Contstruct a stable metacommunity by resampling communties till they are stable. The metacommunity is generated from sp_vec. 
 """
-function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, R::Float64, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100)
+function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat; T_range::Float64 = 0.1, R::Float64=42.0, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100)
     #inital communty generation
     mc = metacommuntiy(sp_vec, N, T_mat, T_range=T_range, R=R)
     psw = proportion_stable_webs(mc , N_trials)
