@@ -40,8 +40,8 @@ function metacommuntiy(coms::Array{Community})
 
     #generate temperature distance matrix
     D = zeros(length(T_mat), length(T_mat))
-    for i = 1:eachindex(T_mat)
-        for j = 1:eachindex(T_mat)
+    for i = eachindex(T_mat)
+        for j = eachindex(T_mat)
             #calculate distance matrix
             D[i,j] = T_mat[j] - T_mat[i]
             D[i,j] = D[i,j] <= 0 ? Inf : D[i,j]
