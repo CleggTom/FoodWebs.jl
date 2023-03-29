@@ -33,7 +33,7 @@ end
 
 Randomly samples a set of generalised parameters from a given interaction matrix and set of niches 
 """
-function generalised_parameters(A,n,R)
+function generalised_parameters(A,n; R::Float64 = 42.0)
     N = size(A)[1]
     #scale
     α = (R .^ n) .^ (-0.25)
@@ -75,7 +75,7 @@ end
 generate parameters directly from a Community object
 """
 function generalised_parameters(com::Community)
-    generalised_parameters(com.A, [s.n for s = com.sp], com.R)
+    generalised_parameters(com.A, [s.n for s = com.sp], R = com.R)
 end
 
 
@@ -181,8 +181,8 @@ function communtiy_stability(c::Community)
 end
 
 
-function proportion_stable_webs(J,c::Community, N::Int = 100)
-    sum([communtiy_stability(J, c) for i = 1:N] .< 0) / N
+function proportion_stable_webs(J,c::Community; N_trials::Int = 100)
+    sum([communtiy_stability(J, c) for i = 1:N_trials] .< 0) / N_trials
 end
 
 """
@@ -190,7 +190,7 @@ end
 
 Calculates the proportion stable parameter configurations for a Community.   
 """
-function proportion_stable_webs(c::Community, N_trials::Int = 100)
+function proportion_stable_webs(c::Community; N_trials::Int = 100)
     J = zeros(size(c.A))
     sum([communtiy_stability(J, c) for i = 1:N_trials] .< 0) / N_trials
 end
@@ -200,7 +200,7 @@ function proportion_stable_webs(mc::MetaCommunity,N_trials::Int = 100)
     for (i,c) = enumerate(mc.coms)
         if length(c.sp) > 0
             J = zeros(size(c.A))
-            props[i] = proportion_stable_webs(J,c,N_trials)
+            props[i] = proportion_stable_webs(J,c,N_trials = N_trials)
         end
     end
     return props 

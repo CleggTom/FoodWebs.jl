@@ -40,8 +40,8 @@ function metacommuntiy(coms::Array{Community})
 
     #generate temperature distance matrix
     D = zeros(length(T_mat), length(T_mat))
-    for i = 1:length(T_mat)
-        for j = 1:length(T_mat)
+    for i = 1:eachindex(T_mat)
+        for j = 1:eachindex(T_mat)
             #calculate distance matrix
             D[i,j] = T_mat[j] - T_mat[i]
             D[i,j] = D[i,j] <= 0 ? Inf : D[i,j]
@@ -66,8 +66,8 @@ end
 
 Generate metacommuntiy from a set of species with community size N and temperatures T_mat. Sampling is done with species T_range unsits of T. 
 """
-function metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, R::Float64)
-    coms = [community(sp_vec, N, T, T_range, R) for T = T_mat]
+function metacommuntiy(sp_vec::Vector{Species}, N::Int64, T_mat; T_range::Float64=0.1, R::Float64=42.0)
+    coms = [community(sp_vec, N, T=T, T_range=T_range, R=R) for T = T_mat]
 
     return metacommuntiy(coms)
 end
@@ -80,7 +80,7 @@ Contstruct a stable metacommunity by resampling communties till they are stable.
 """
 function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range::Float64, R::Float64, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100)
     #inital communty generation
-    mc = metacommuntiy(sp_vec, N, T_mat, T_range, R)
+    mc = metacommuntiy(sp_vec, N, T_mat, T_range=T_range, R=R)
     psw = proportion_stable_webs(mc , N_trials)
     coms = mc.coms
 
@@ -90,7 +90,7 @@ function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat, T_range:
        #replace unstable communtiy
         for i = eachindex(psw)
             if psw[i] .< psw_threshold
-                coms[i] = community(sp_vec, N , coms[i].T, T_range, R) 
+                coms[i] = community(sp_vec, N , T=coms[i].T, T_range=T_range, R=R) 
                 psw[i] = proportion_stable_webs(coms[i], N_trials)
             end
         end
@@ -170,9 +170,6 @@ Select the site the species will disperse to. This is done by considering the di
 #     return from, to
 # end
 
-
-sp_vec = [species(0.3) for i = 1:100]
-mc = metacommuntiy(sp_vec, 10, range(0,1, length = 10), 0.1, 43.0)
 
 """
     multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)

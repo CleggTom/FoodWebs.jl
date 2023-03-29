@@ -42,7 +42,7 @@ struct Community
 end
 
 """
-    isequalcom(a::Community, b::Community)
+    isequalcommunity(a::Community, b::Community)
 
 Test if two community objects are equal. This forces comparison by equality (`==`) as opposed to identity ('===') which the default `isequal` method uses. 
 """
@@ -56,11 +56,11 @@ end
 Base.show(io::IO, com::Community) = print(io, "Community N:", length(com.sp)," T:", com.T )
 
 """
-    community(sp_vec::Vector{Species}, T::Float64 = 0.5, R::Float64 = 42)
+    community(sp_vec::Vector{Species}; T::Float64 = 0.5, R::Float64 = 42.0)
 
 Generates an adjacency matrix for a given set of species using the niche model. 
 """
-function community(sp_vec::Vector{Species}, T::Float64 = 0.5, R::Float64 = 42)
+function community(sp_vec::Vector{Species}; T::Float64 = 0.5, R::Float64 = 42.0)
     N = length(sp_vec)
     A = zeros(N,N)
 
@@ -82,11 +82,11 @@ function community(sp_vec::Vector{Species}, T::Float64 = 0.5, R::Float64 = 42)
 end
 
 """
-    community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float64, R::Float64)
+    community(sp_vec::Vector{Species}, N::Int64; T::Float64=0.5, T_range::Float64=0.1, R::Float64=42.0)
 
 Randomly assembles a food web from a set of species of size N at temperature T. Species are selected within a range of T_range. Returns adjacency matrix. 
 """
-function community(sp_vec::Vector{Species}, N::Int64, T::Float64, T_range::Float64, R::Float64)
+function community(sp_vec::Vector{Species}, N::Int64; T::Float64=0.5, T_range::Float64=0.1, R::Float64=42.0)
     #select sp based on Temp range...
     indx = findall([s.Tpk < (T + T_range) && s.Tpk > T - T_range for s = sp_vec])
     
