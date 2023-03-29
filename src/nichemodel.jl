@@ -97,7 +97,7 @@ function community(sp_vec::Vector{Species}, N::Int64; T::Float64=0.5, T_range::F
     #sample
     sp_vec_indx = sp_vec_temp[sortperm(rand(length(indx)))[1:N_T]]
 
-    return community(sp_vec_indx, T, R)
+    return community(sp_vec_indx, T=T, R=R)
 end
 
 """
@@ -118,7 +118,7 @@ function add_species(com::Community, sp::Species)
     # get new sp list
     sp_vec_new = vcat(com.sp, [sp])
 
-    return community(sp_vec_new, com.T, com.R)
+    return community(sp_vec_new, T=com.T, R=com.R)
 end
 
 """
@@ -131,7 +131,7 @@ function remove_species(com::Community, id::UUID)
 
     indx = com.ids .!= id
 
-    return community(com.sp[indx], com.T, com.R)
+    return community(com.sp[indx], T= com.T, R=com.R)
 end
 
 """
