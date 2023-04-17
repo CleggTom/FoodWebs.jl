@@ -88,7 +88,7 @@ function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat; T_range:
     k = 0
     while (k < max_draws) && any(psw .< psw_threshold)
        #replace unstable communtiy
-        Threads.@threads for i = eachindex(psw)
+        for i = eachindex(psw)
             if psw[i] .< psw_threshold
                 coms[i] = community(sp_vec, N , T=coms[i].T, T_range=T_range, R=R) 
                 psw[i] = proportion_stable_webs(coms[i], N_trials = N_trials)
