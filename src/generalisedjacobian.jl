@@ -52,16 +52,20 @@ function generalised_parameters(A,n; R::Float64 = 42.0)
     β[isnan.(β)] .= 0.0
     χ[isnan.(χ)] .= 0.0
 
+    #total growth from produciton
     ρ = 1 .* (sum(A,dims=2) .!= 0)[:]
+    #growth from predation
     ρ̃ = 1 .- ρ
     
-    σ = 1 .* (sum(A,dims=1) .== 0)[:]
+    #loss from predation
+    σ = 1 .* (sum(A,dims=1) .!= 0)[:]
+    #loss from mortality
     σ̃ = 1 .- σ
 
     #exponent
     γ = rand(N) .+ 0.5 #[0.5,1.5]
     λ = ones(N,N)
-    μ = ones(N) .* 2#rand(N) .+ 1.0 #[1.0,2.0]
+    μ = 2 .* ones(N)#rand(N) .+ 1.0 #[1.0,2.0]
     ϕ = rand(N)
     ψ = rand(N) .+ 0.5
 
@@ -128,12 +132,17 @@ end
 Get the real part of the maximum eigenvalue from J allowing for complex values. 
 """
 function max_real_eigval(J)
-    λ = eigvals(J)[end]
-    if isa(λ, Complex)
-        return(λ.re)
-    else
-        return(λ)
+    λ = eigvals(J)
+
+    if length(λ)>0
+        if isa(λ[end], Complex)
+            return(λ[end].re)
+        else
+            return(λ[end])
+        end
     end
+
+    return(NaN)
 end
 
 
@@ -195,12 +204,17 @@ function proportion_stable_webs(c::Community; N_trials::Int = 100)
     sum([communtiy_stability(J, c) for i = 1:N_trials] .< 0) / N_trials
 end
  
-function proportion_stable_webs(mc::MetaCommunity,N_trials::Int = 100)
+"""
+    proportion_stable_webs(mc::MetaCommunity; N_trials::Int = 100)
+
+Calculates proprtion stable webs across a metacommuntiy, returning an array of proportions. 
+"""
+function proportion_stable_webs(mc::MetaCommunity; N_trials::Int = 100)
     props = zeros(size(mc.coms))
     for (i,c) = enumerate(mc.coms)
         if length(c.sp) > 0
             J = zeros(size(c.A))
-            props[i] = proportion_stable_webs(J,c,N_trials = N_trials)
+            props[i] = proportion_stable_webs(J,c, N_trials = N_trials)
         end
     end
     return props 

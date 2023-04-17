@@ -78,23 +78,25 @@ end
 
 Contstruct a stable metacommunity by resampling communties till they are stable. The metacommunity is generated from sp_vec. 
 """
-function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat; T_range::Float64 = 0.1, R::Float64=42.0, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100)
+function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat; T_range::Float64 = 0.1, R::Float64=42.0, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100, verbose = false, vk = 5)
     #inital communty generation
     mc = metacommuntiy(sp_vec, N, T_mat, T_range=T_range, R=R)
-    psw = proportion_stable_webs(mc , N_trials)
+    psw = proportion_stable_webs(mc , N_trials = N_trials)
     coms = mc.coms
 
     #resample unstable communties
     k = 0
     while (k < max_draws) && any(psw .< psw_threshold)
        #replace unstable communtiy
-        for i = eachindex(psw)
+        Threads.@threads for i = eachindex(psw)
             if psw[i] .< psw_threshold
                 coms[i] = community(sp_vec, N , T=coms[i].T, T_range=T_range, R=R) 
-                psw[i] = proportion_stable_webs(coms[i], N_trials)
+                psw[i] = proportion_stable_webs(coms[i], N_trials = N_trials)
             end
         end
-        println("draw:", k, " psw: ", psw)
+        
+        verbose && k % vk == 0 && println("draw:", k, " psw: ", psw)
+
         k += 1
     end
 
@@ -179,20 +181,22 @@ Disperse multiple species at once. Modifies a MetaCommunity object in place. The
 
 2) Communtiy selection
 """
-function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
+function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5, verbose = false)
     @assert p_dispersal ∈ [:k, :p, :r]
     @assert d_dispersal ∈ [:p, :r]
+    check_metacommunity(mc)
 
     #calculate mass + rate
+   
     M = [mc.R ^ sp.n for sp = mc.sp]
     λ = M .^ 0.75
 
     #sample species to disperse
     if p_dispersal == :r #uniform random
-        ids = sample(mc.sp_id, K)
-    elseif p_dispersal == :k
-            ids = sample(mc.sp_id,  Weights(1 .- exp.( -λ)), K)
-    elseif p_dispersal == :p
+        ids = sample(mc.sp_id, K, replace = false)
+    elseif p_dispersal == :k #K samples
+        ids = sample(mc.sp_id,  Weights(1 .- exp.( -λ)), K)
+    elseif p_dispersal == :p #probabalistic
         p = 1 .- exp.( -λ)
         ids = mc.sp_id[findall(rand(length(p)) .< p)]
     end
@@ -200,8 +204,12 @@ function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
     #get from locations
     from = sample.(get.(Ref(mc.sp_loc), ids, 0))
     
+    if verbose 
+        println(" moving:", length(from))
+    end
+    
     #sample distances
-    for k = 1:K #loop over species
+    for k = eachindex(from) #loop over species
         if d_dispersal == :r
             #randomly sample
             to = sample(1: length(mc.D[from[k],:]))
@@ -210,14 +218,44 @@ function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
             d = rand(truncated(Exponential(λ[k]), 0, 1))
             to = findmin((mc.D[from[k],:] .- d).^2)[2]
         end
-
         #if sp is not there add it
         if !(ids[k] in mc.coms[to].ids)
             move_sp_meta!(mc, from[k], to, ids[k])
         end
+        check_metacommunity(mc)
     end
 
 end
+
+# # #1) GENERATE SPECIES POOL
+# N_pool = 100000
+# sp_vec = [species(0.1) for i = 1:N_pool];
+
+# #2) ASSEMBLE COMMUNITIES
+# #set temperatures
+# N_T = 2
+# t_vec = range(0,1,length = N_T)
+
+# #generate metacommunty
+# mc1 = stable_metacommunity(sp_vec, 10, t_vec, T_range = 0.1, R = 43.0,
+#          psw_threshold = 0.9, max_draws = 100, verbose = true, vk = 1)
+
+# mc2 = deepcopy(mc1)
+# check_metacommunity(mc1)
+
+# id = mc1.sp_id[1]
+# from = mc1.sp_loc[mc1.sp_id[1]][1]
+# to = [1,2][findfirst(from .∉ [1, 2])]
+
+# move_sp_meta!(mc1, from, to, id)
+
+# check_metacommunity(mc1)
+# check_metacommunity(mc2)
+
+# multiple_dispersal!(mc1)
+
+#move
+
 
 """
     test_metacommunity(mc)
@@ -228,7 +266,7 @@ function check_metacommunity(mc::MetaCommunity)
     for (i,sp) in enumerate(mc.sp)
         coms = mc.sp_loc[sp.id]
         for c in coms
-            @assert sp in mc.coms[c].sp "$c $sp"
+            @assert sp in mc.coms[c].sp "$sp is not in $c"
         end
     end
 end

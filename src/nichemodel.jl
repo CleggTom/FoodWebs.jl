@@ -58,25 +58,45 @@ Base.show(io::IO, com::Community) = print(io, "Community N:", length(com.sp)," T
 """
     community(sp_vec::Vector{Species}; T::Float64 = 0.5, R::Float64 = 42.0)
 
-Generates an adjacency matrix for a given set of species using the niche model. 
+Generates an adjacency matrix for a given set of species using the niche model. removes spare nodes...
 """
 function community(sp_vec::Vector{Species}; T::Float64 = 0.5, R::Float64 = 42.0)
     N = length(sp_vec)
     A = zeros(N,N)
 
+    #loop over species
     for (i,sp_i) = enumerate(sp_vec)
         for (j,sp_j) = enumerate(sp_vec)
+            #if j is within range of i
             if sp_j.n < (sp_i.c + (sp_i.r/2))
                 if  sp_j.n > (sp_i.c - (sp_i.r/2))
-                    if i ≠ j
                         A[i,j] = 1
-                    end
                 end
             end
         end
     end
 
+    #ids
     ids = [x.id for x = sp_vec]
+
+    #remove double links
+    double_links = findall(UpperTriangular(A) .* LowerTriangular(A)' .!= 0)
+    #loop over and clean double links, larger consumer stays
+    for link = double_links
+        i,j = link.I
+        if sp_vec[i].n > sp_vec[j].n
+            A[j,i] = 0
+        else
+            A[i,j] = 0
+        end
+    end
+
+    #remove canabalism
+    A[diagind(A)] .= 0
+
+    #remove isolated nodes    
+    #ensure producer still exists!
+
 
     return Community(A, sp_vec, ids, T, R)
 end
@@ -148,7 +168,7 @@ end
 
 Move species identified by `id` from `com1` to `com2`
 """
-function move_species(com1::Community,com2::Community,id::UUID)
+function move_species(com1::Community,com2::Community, id::UUID)
     @assert id in com1.ids "no species with id in com1"
     #add to community 2
     com2_new = add_species(com2, com1.sp[findfirst(com1.ids .== id)])
