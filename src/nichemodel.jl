@@ -7,7 +7,7 @@ Constructor function for Sp type. Randomly generates niche parameters given a co
 function species(C::Float64, Tpk::Float64)
     #niche params
     β = (1 / (2*C)) - 1
-    n = rand(Uniform(0,1))
+    n = rand(Beta(1,3))
     r = n * rand(Beta(1.0, β))
     c = rand(Uniform(r / 2, n))
     #extra params

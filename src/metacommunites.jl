@@ -98,12 +98,10 @@ function stable_metacommunity_p(sp_vec::Vector{Species}, N::Int64, T_mat; T_rang
             coms[i] = stable_parameterisation(c, N_trials)
         end
         
-        print(typeof(coms))
-        
         #resample unstable
         k = 0
         while (k < max_draws) && any(isa.(coms,Ref(Community)))
-            println(max_draws)
+
             for (i,c) = enumerate(coms)
                 if isa(c, ParameterisedCommunity)
                     continue
