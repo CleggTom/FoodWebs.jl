@@ -1,43 +1,6 @@
-
-"""
-    GeneralisedParameters
-
-Type to contain the parameters for the normalised model.
-"""
-struct GeneralisedParameters
-    #system parameters 
-    N::Int64
-    n::Vector{Float64}
-    A::Matrix{Float64}
-
-    #scale parameters
-    α::Vector{Float64}
-    β::Matrix{Float64}
-    χ::Matrix{Float64}
-    ρ::Vector{Float64}
-    ρ̃::Vector{Float64}
-    σ::Vector{Float64}
-    σ̃::Vector{Float64}
-
-    #exponent parameters
-    γ::Vector{Float64}
-    λ::Matrix{Float64}
-    μ::Vector{Float64}
-    ϕ::Vector{Float64}
-    ψ::Vector{Float64}
-end
-
-
-"""
-    generalised_parameters(A,n)
-
-Randomly samples a set of generalised parameters from a given interaction matrix and set of niches 
-"""
-function generalised_parameters(A,n; R::Float64 = 42.0)
+function structural_parameters(A)
     N = size(A)[1]
-    #scale
-    α = (R .^ n) .^ (-0.25)
-
+    
     β = zeros(N,N)
     χ = zeros(N,N)
     for i = 1:N
@@ -62,12 +25,33 @@ function generalised_parameters(A,n; R::Float64 = 42.0)
     #loss from mortality
     σ̃ = 1 .- σ
 
+    return(β,χ,ρ,ρ̃,σ,σ̃)
+end
+
+function random_parameters(N)
     #exponent
     γ = rand(N) .+ 0.5 #[0.5,1.5]
     λ = ones(N,N)
-    μ = 2 .* ones(N)#rand(N) .+ 1.0 #[1.0,2.0]
+    μ = rand(N) .+ 1.0 #[1.0,2.0]
     ϕ = rand(N)
     ψ = rand(N) .+ 0.5
+
+    return(γ,λ,μ,ϕ,ψ)
+end
+
+"""
+    generalised_parameters(A,n)
+
+Randomly samples a set of generalised parameters from a given interaction matrix and set of niches 
+"""
+function generalised_parameters(A,n; R::Float64 = 42.0)
+    N = size(A)[1]
+    #scale
+    α = (R .^ n) .^ (-0.25)
+
+    β,χ,ρ,ρ̃,σ,σ̃ = structural_parameters(A)
+    γ,λ,μ,ϕ,ψ = random_parameters(N)
+    
 
     return GeneralisedParameters(N,n,A,α,β,χ,ρ,ρ̃,σ,σ̃,γ,λ,μ,ϕ,ψ)
 end
@@ -151,8 +135,11 @@ end
 
 Get the real part of the leading eigenvalue from parameter set p. J is provided to avoid allocation
 """
-function communtiy_stability(J,p::GeneralisedParameters)
-    @assert p.N > 0
+function communtiy_stability!(J,p::GeneralisedParameters)
+    if p.N == 0 
+        return NaN
+    end
+
     generalised_jacobian!(J,p::GeneralisedParameters)
     return max_real_eigval(J) 
 end
@@ -172,21 +159,29 @@ end
 
 Calculates real part of the leading eigenvalue directly from a Communtiy object. 
 """
-function communtiy_stability(J, c::Community)
+function communtiy_stability!(J, c::Community)
     #make params
     p = generalised_parameters(c)
-    return communtiy_stability(J, p)
+    return communtiy_stability!(J, p)
 end
 
 """
     communtiy_stability(c::Community)
 
-Calculates real part of the leading eigenvalue directly from a Communtiy object. 
+Calculates real part of the leading eigenvalue directly from a Communitiy object. 
 """
 function communtiy_stability(c::Community)
     #make params
     J = zeros(size(c.A))
-    return communtiy_stability(J, c)
+    return communtiy_stability!(J, c)
+end
+
+function communtiy_stability!(J, c::ParameterisedCommunity)
+    communtiy_stability!(J, c.p)
+end
+
+function communtiy_stability(c::ParameterisedCommunity)
+    communtiy_stability(c.p)
 end
 
 
@@ -218,4 +213,35 @@ function proportion_stable_webs(mc::MetaCommunity; N_trials::Int = 100)
         end
     end
     return props 
+end
+
+
+function stable_parameterisation(com::Community, N_trials = 100)
+    k = 1
+    J = zeros(size(com.A))
+    while k < N_trials
+ 
+        p = generalised_parameters(com)
+        if communtiy_stability!(J, p) < 0
+            return parameterised_community(com, p)
+        end
+        k += 1
+    end
+    return com
+end
+
+function time2stable(com)
+    t_start = time()
+
+    if stable_parameterisation(com, Inf) == false
+        return Inf
+    end
+
+    t_end = time()
+
+    return t_end - t_start
+end
+
+function metacommuntiy_stability(mc)
+    [communtiy_stability(c) for c = mc.coms]
 end

@@ -1,19 +1,3 @@
-"""
-    MetaCommunity
-
-type containing parameters defining a metacommunity including the communties `coms` as well as the matrix `D` which defines "distance" between communties.
-"""
-struct MetaCommunity
-    coms::Array{Community}
-    D::Array{Float64}
-    T_mat::Array{Float64}
-    sp::Vector{Species}
-    sp_id::Vector{UUID}
-    sp_loc::Dict{UUID,Vector{Int}}
-    R::Float64
-end
-
-Base.show(io::IO, mc::MetaCommunity) =  print(io, "MetaCommunity M:", length(mc.coms)," Sp: ", length(mc.sp))
 
 #constructers
 """
@@ -21,7 +5,7 @@ Base.show(io::IO, mc::MetaCommunity) =  print(io, "MetaCommunity M:", length(mc.
 
 Creates a MetaCommunity object from communities in `coms`.
 """
-function metacommuntiy(coms::Array{Community})
+function metacommuntiy(coms::Array{T}) where T <: AbstractCommunity
     #get sp_vector
     sp_vec = unique(vcat([x.sp for x = coms]...))
     T_mat = [c.T for c = coms]
@@ -105,6 +89,34 @@ function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat; T_range:
     return(mc)
 end
 
+function stable_metacommunity_p(sp_vec::Vector{Species}, N::Int64, T_mat; T_range::Float64 = 0.1, R::Float64=42.0, N_trials::Int = 100, max_draws::Int = 100, verbose = false, vk = 5)
+        #inital communty generation
+        mc = metacommuntiy(sp_vec, N, T_mat, T_range=T_range, R=R)
+        coms = [stable_parameterisation(c, N_trials) for c = mc.coms]
+        
+        #resample unstable
+        k = 0
+        while (k < max_draws) && any(isa.(coms,Ref(Community)))
+            
+            for (i,c) = enumerate(coms)
+                if isa(c, ParameterisedCommunity)
+                    continue
+                end
+                com_new = community(sp_vec, N , T=coms[i].T, T_range=T_range, R=R) 
+                coms[i] = stable_parameterisation(com_new, N_trials)
+            
+            end
+
+            verbose && k % vk == 0 && println("draw:", k, " stable: ", typeof.(coms) .== ParameterisedCommunity)
+
+            k += 1
+        end
+
+        mc_p = metacommuntiy(coms)
+
+        return(mc_p)
+end
+
 #functions
 """
     move_sp_meta!(mc::MetaCommunity, a, b, id)
@@ -120,59 +132,6 @@ function move_sp_meta!(mc::MetaCommunity, a, b, id)
     filter!(x -> x != a, mc.sp_loc[id])
 end
 
-#single random movement
-"""
-    random_dispersal!(mc, p_dispersal = :weighted, d_dispersal = :weighted)
-
-Randomly selects and moves a single Species between webs in a MetaCommunity. The movement is split into two stages:
-
-1) Select Species
-Select the species to move based on relative body size `n`. This is done by sampling with weighted probablities set to 1 - exp(-n ^ 0.75)
-
-2) Select site
-Select the site the species will disperse to. This is done by considering the distance matrix 
-"""
-# function random_dispersal!(mc; p_dispersal = :p, d_dispersal = :p)
-#     @assert p_dispersal ∈ [:p, :r]
-#     @assert d_dispersal ∈ [:p, :r]
-
-#     #sample sp to disperse
-#     if p_dispersal == :p
-#         id = sample(mc.sp_id,  Weights([1 - exp(-sp.n ^ 0.75) for sp = mc.sp]))
-#     elseif p_dispersal == :r
-#         id = sample(mc.sp_id)
-#     end
-
-#     #get from location
-#     from = sample(mc.sp_loc[id])
-
-#     if d_dispersal == :p
-#         #get to
-#         #distance rate
-#         n = mc.sp[findall(id .== mc.sp_id)[1]].n
-#         λ = (1 - n)^(0.75)
-#         w = exp.(-λ * mc.D[from,:] * 2)
-
-#     elseif d_dispersal == :r
-#         w = .!isinf.(mc.D[from,:])
-#     end
-
-#     #skip if nowhere to disperse to
-#     if all(w .== 0.0)
-#         # print("cant disperse")
-#         return 0,0
-#     end
-
-#     to = sample(1:length(mc.T_mat), Weights(w))
-
-#     if !(id in mc.coms[to].ids)
-#         move_sp_meta!(mc, from, to, id)
-#     end
-    
-#     return from, to
-# end
-
-
 """
     multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
 
@@ -186,18 +145,19 @@ function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5, verb
     @assert d_dispersal ∈ [:p, :r]
     check_metacommunity(mc)
 
-    #calculate mass + rate
+    #calculate mass +ß rate
    
     M = [mc.R ^ sp.n for sp = mc.sp]
-    λ = M .^ 0.75
+    d0 = -log(1 - 0.9) / (mc.R^0.75)
+    λ_p = d0 .* (M .^ 0.75)
 
     #sample species to disperse
     if p_dispersal == :r #uniform random
         ids = sample(mc.sp_id, K, replace = false)
     elseif p_dispersal == :k #K samples
-        ids = sample(mc.sp_id,  Weights(1 .- exp.( -λ)), K)
+        ids = sample(mc.sp_id,  Weights(1 .- exp.( -λ_p)), K)
     elseif p_dispersal == :p #probabalistic
-        p = 1 .- exp.( -λ)
+        p = 1 .- exp.( -λ_p)
         ids = mc.sp_id[findall(rand(length(p)) .< p)]
     end
 
@@ -209,13 +169,15 @@ function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5, verb
     end
     
     #sample distances
+    d0 = -log(1 - 0.9) / 0.5(mc.R^-0.75)
+    λ_d = d0 .* (M .^ -0.75)
     for k = eachindex(from) #loop over species
         if d_dispersal == :r
             #randomly sample
             to = sample(1: length(mc.D[from[k],:]))
         elseif d_dispersal == :p
-            #sample from exponential Distribution upwards
-            d = rand(truncated(Exponential(λ[k]), 0, 1))
+            #sample from Exponential Distribution upwards
+            d = rand(Exponential(1 / λ_d[k]))
             to = findmin((mc.D[from[k],:] .- d).^2)[2]
         end
         #if sp is not there add it
@@ -226,36 +188,6 @@ function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5, verb
     end
 
 end
-
-# # #1) GENERATE SPECIES POOL
-# N_pool = 100000
-# sp_vec = [species(0.1) for i = 1:N_pool];
-
-# #2) ASSEMBLE COMMUNITIES
-# #set temperatures
-# N_T = 2
-# t_vec = range(0,1,length = N_T)
-
-# #generate metacommunty
-# mc1 = stable_metacommunity(sp_vec, 10, t_vec, T_range = 0.1, R = 43.0,
-#          psw_threshold = 0.9, max_draws = 100, verbose = true, vk = 1)
-
-# mc2 = deepcopy(mc1)
-# check_metacommunity(mc1)
-
-# id = mc1.sp_id[1]
-# from = mc1.sp_loc[mc1.sp_id[1]][1]
-# to = [1,2][findfirst(from .∉ [1, 2])]
-
-# move_sp_meta!(mc1, from, to, id)
-
-# check_metacommunity(mc1)
-# check_metacommunity(mc2)
-
-# multiple_dispersal!(mc1)
-
-#move
-
 
 """
     test_metacommunity(mc)
