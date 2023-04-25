@@ -92,12 +92,18 @@ end
 function stable_metacommunity_p(sp_vec::Vector{Species}, N::Int64, T_mat; T_range::Float64 = 0.1, R::Float64=42.0, N_trials::Int = 100, max_draws::Int = 100, verbose = false, vk = 5)
         #inital communty generation
         mc = metacommuntiy(sp_vec, N, T_mat, T_range=T_range, R=R)
-        coms = [stable_parameterisation(c, N_trials) for c = mc.coms]
+        coms = Vector{AbstractCommunity}(undef, length(T_mat))
+
+        for (i,c) = enumerate(mc.coms)
+            coms[i] = stable_parameterisation(c, N_trials)
+        end
+        
+        print(typeof(coms))
         
         #resample unstable
         k = 0
         while (k < max_draws) && any(isa.(coms,Ref(Community)))
-            
+            println(max_draws)
             for (i,c) = enumerate(coms)
                 if isa(c, ParameterisedCommunity)
                     continue

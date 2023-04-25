@@ -32,7 +32,7 @@ function random_parameters(N)
     #exponent
     γ = rand(N) .+ 0.5 #[0.5,1.5]
     λ = ones(N,N)
-    μ = rand(N) .+ 1.0 #[1.0,2.0]
+    μ = 2 * ones(N)
     ϕ = rand(N)
     ψ = rand(N) .+ 0.5
 
