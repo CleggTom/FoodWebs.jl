@@ -4,10 +4,10 @@
 
 Constructor function for Sp type. Randomly generates niche parameters given a connectance value
 """
-function species(C::Float64, Tpk::Float64)
+function species(C::Float64, Tpk::Float64; n::Float64 = rand())
     #niche params
     β = (1 / (2*C)) - 1
-    n = rand(Beta(1,3))
+    # n = rand()
     r = n * rand(Beta(1.0, β))
     c = rand(Uniform(r / 2, n))
     #extra params
@@ -15,7 +15,25 @@ function species(C::Float64, Tpk::Float64)
     return Species(n,r,c,Tpk,uuid)
 end
 
-species(C::Float64) = species(C, rand())
+species(C::Float64; n::Float64 = rand()) = species(C, rand(), n = n)
+
+"""
+    species(C::Float64, Tpk::Vector{Float64}, N::Int64)
+
+efficent method for generating multiple species at a time.
+"""
+function species(C::Float64, Tpk::Vector{Float64}, N::Int64; n::Vector{Float64} = rand(N))
+    β = (1 / (2*C)) - 1
+    # n = rand(N)
+    r = n .* rand(Beta(1.0, β), N)
+    c = rand.(Uniform.(r / 2, n))
+    uuid = [UUIDs.uuid1() for i = 1:N]
+
+    return Species.(n,r,c,Tpk,uuid)
+end
+
+species(C::Float64, N::Int64; n::Vector{Float64} = rand(N)) = species(C, rand(N), N, n = n)
+
 
 """
     parameterised_species(sp::Species, p::SpeciesParameters)
@@ -85,9 +103,9 @@ end
 """
     check_web!(com)
 
-Remove double and canabalistic links from a niche web
+Remove double and canabalistic links from a community web
 """
-function check_web!(com)
+function check_web!(com::Community)
     A = com.A
     sp_vec = com.sp
     #remove double links
@@ -117,11 +135,19 @@ end
 Generates an adjacency matrix for a given set of species using the niche model. removes spare nodes...
 """
 function community(sp_vec::Vector{Species}; T::Float64 = 0.5, R::Float64 = 42.0)
+    #add single producer
+    # if !any(1e-2 .== [s.n for s = sp_vec])
+    #     push!(sp_vec, species(0.0,T,n = 1e-2))
+    # end
+
+
     N = length(sp_vec)
     A = zeros(N,N)
+    n = zeros(N)
 
     #loop over species
     for (i,sp_i) = enumerate(sp_vec)
+        n[i] = sp_i.n
         for (j,sp_j) = enumerate(sp_vec)
             #if j is within range of i
             if sp_j.n < (sp_i.c + (sp_i.r/2))
@@ -135,11 +161,8 @@ function community(sp_vec::Vector{Species}; T::Float64 = 0.5, R::Float64 = 42.0)
     #ids
     ids = [x.id for x = sp_vec]
 
-    com = Community(A, sp_vec, ids, T, R)
+    com = Community(N, A, sp_vec, ids, n, T, R)
     check_web!(com)
-
-
-
     return com
 end
 
@@ -148,19 +171,18 @@ end
 
 Randomly assembles a food web from a set of species of size N at temperature T. Species are selected within a range of T_range. Returns adjacency matrix. 
 """
-function community(sp_vec::Vector{Species}, N::Int64; T::Float64=0.5, T_range::Float64=0.1, R::Float64=42.0)
-    #select sp based on Temp range...
-    indx = findall([s.Tpk < (T + T_range) && s.Tpk > T - T_range for s = sp_vec])
-    
-    N_T = min(length(indx),N)
+# function community(sp_vec::Vector{Species}, N::Int64; T::Float64=0.5, T_range::Float64=0.1, R::Float64=42.0)
+#     #select sp based on Temp range...
+#     indx = findall([s.Tpk < (T + T_range) && s.Tpk > T - T_range for s = sp_vec])
+#     indx = rand(indx, min(length(indx),N))
+#     # N_T = 
 
-    sp_vec_temp = sp_vec[indx]
 
-    #sample
-    sp_vec_indx = sp_vec_temp[sortperm(rand(length(indx)))[1:N_T]]
+#     #sample
+#     # sp_vec_indx = rand(sp_vec_temp, N_T)
 
-    return community(sp_vec_indx, T=T, R=R)
-end
+#     return community(sp_vec[indx], T=T, R=R)
+# end
 
 """
     community(N,C)
@@ -175,7 +197,7 @@ Constructs a food web of size N and connectance C by randomly generating species
 Adds generalised parameter set to a community
 """
 function parameterised_community(com::Community,p::GeneralisedParameters)
-    ParameterisedCommunity(com.A,com.sp,com.ids,com.T,com.R,p)
+    ParameterisedCommunity(com.N, com.A,com.sp,com.ids,com.n, com.T,com.R, p)
 end
 
 """
@@ -184,7 +206,7 @@ end
 Coverts ParameterisedCommunity in Community object.
 """
 function community(com::ParameterisedCommunity)
-    Community(com.A,com.sp,com.ids,com.T,com.R)
+    Community(com.N, com.A,com.sp,com.ids,com.T,com.R)
 end
 
 #Community generation
@@ -196,6 +218,7 @@ Add species `sp` to a community and partially construct the niche web.
 function add_species(com::Community, sp::Species)
     # get new sp list
     sp_vec_new = vcat(com.sp, [sp])
+    n_new = vcat(com.n, [sp.n])
 
     #ids
     ids = [x.id for x = sp_vec_new]
@@ -218,8 +241,8 @@ function add_species(com::Community, sp::Species)
         end
     end
 
-    new_com = Community(A, sp_vec_new, ids, com.T, com.R)
-    check_web!(new_com)
+    new_com = Community(com.N + 1 , A, sp_vec_new, ids, n_new, com.T, com.R)
+    # check_web!(new_com)
 
     return new_com
 end
@@ -229,28 +252,28 @@ end
 
 Adds a ParameterisedSpecies to a ParameterisedCommunity
 """
-function add_species(com::ParameterisedCommunity, sp::ParameterisedSpecies)
+function add_species(com::ParameterisedCommunity, p_sp::ParameterisedSpecies)
     #add species
-    com_new = add_species(community(com), Species(sp.n,sp.r,sp.c,sp.Tpk,sp.id))
+    com_new = add_species(community(com), Species(p_sp.n,p_sp.r,p_sp.c,p_sp.Tpk,p_sp.id))
 
     #calcualte new params
     N = size(com_new.A)[1]
-    n = vcat(com.p.n, sp.n)
-    α = vcat(com.p.α, (com.R .^ sp.n) .^ (-0.25))
+    n = vcat(com.p.n, p_sp.n)
+    α = vcat(com.p.α, (com.R .^ p_sp.n) .^ (-0.25))
 
     #update struct params
-    β,χ,ρ,ρ̃,σ,σ̃ = structural_parameters(com_new.A)
+    sp = structural_parameters(com_new.A)
     
     #add exponential parameters
-    γ,λ,μ,ϕ,ψ = get_exponential_params(com.p)
-    γ = vcat(γ, sp.p.γ)
+    ep = get_exponential_params(com.p)
+    γ = vcat(ep.γ, p_sp.p.γ)
     λ = ones(N,N)
-    μ = vcat(μ, sp.p.μ)
-    ϕ = vcat(ϕ, sp.p.ϕ)
-    ψ = vcat(ψ, sp.p.ψ)
+    μ = vcat(ep.μ, p_sp.p.μ)
+    ϕ = vcat(ep.ϕ, p_sp.p.ϕ)
+    ψ = vcat(ep.ψ, p_sp.p.ψ)
 
     #generate new paramstruct
-    p_new = GeneralisedParameters(N,n,com_new.A,α,β,χ,ρ,ρ̃,σ,σ̃,γ,λ,μ,ϕ,ψ)
+    p_new = GeneralisedParameters(sp.N,n,com_new.A,α,sp.β,sp.χ,sp.ρ,sp.ρ̃,sp.σ,sp.σ̃,γ,λ,μ,ϕ,ψ)
 
     return parameterised_community(com_new, p_new)
 end
@@ -266,10 +289,10 @@ function remove_species(com::Community, id::UUID)
     indx = com.ids .!= id
     n_sp = com.sp[indx]
     n_ids = com.ids[indx]
-    A = com.A[indx,indx]
+    n_n = com.n[indx]
 
-    new_com = Community(A,n_sp,n_ids,com.T, com.R)
-    check_web!(new_com)
+    new_com = Community(com.N - 1, com.A[indx,indx],n_sp,n_ids,n_n,com.T, com.R)
+    # check_web!(new_com)
 
     return new_com
 end
@@ -290,19 +313,19 @@ function remove_species(com::ParameterisedCommunity, id::UUID)
      n = com.p.n[indx]
      α = com.p.α[indx]
 
-    β,χ,ρ,ρ̃,σ,σ̃ = structural_parameters(com_new.A)
+    sp = structural_parameters(com_new.A)
 
     #remove exponential parameters
-    γ,λ,μ,ϕ,ψ = get_exponential_params(com.p)
+    ep = get_exponential_params(com.p)
 
-    γ = γ[indx]
+    γ = ep.γ[indx]
     λ = ones(N,N)
-    μ = μ[indx]
-    ϕ = ϕ[indx]
-    ψ = ψ[indx]
+    μ = ep.μ[indx]
+    ϕ = ep.ϕ[indx]
+    ψ = ep.ψ[indx]
     
     #generate new paramstruct
-    p_new = GeneralisedParameters(N,n,com_new.A,α,β,χ,ρ,ρ̃,σ,σ̃,γ,λ,μ,ϕ,ψ)
+    p_new = GeneralisedParameters(N,n,com_new.A,α,sp.β,sp.χ,sp.ρ,sp.ρ̃,sp.σ,sp.σ̃,γ,λ,μ,ϕ,ψ)
     
     return parameterised_community(com_new, p_new)
 end
@@ -323,6 +346,7 @@ Move species identified by `id` from `com1` to `com2`
 """
 function move_species(com1::Community,com2::Community, id::UUID)
     @assert id in com1.ids "no species with id in com1"
+    @assert !(id in com2.ids) "id aleady in com2"
     #add to community 2
     com2_new = add_species(com2, com1.sp[findfirst(com1.ids .== id)])
 

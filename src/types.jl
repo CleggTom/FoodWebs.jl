@@ -36,19 +36,9 @@ struct ParameterisedSpecies <: AbstractSpecies
     p::SpeciesParameters
 end
 
-
-"""
-    GeneralisedParameters
-
-Type to contain the parameters for the normalised model.
-"""
-struct GeneralisedParameters
-    #system parameters 
+struct StructuralParameters
     N::Int64
-    n::Vector{Float64}
     A::Matrix{Float64}
-
-    #scale parameters
     α::Vector{Float64}
     β::Matrix{Float64}
     χ::Matrix{Float64}
@@ -56,8 +46,9 @@ struct GeneralisedParameters
     ρ̃::Vector{Float64}
     σ::Vector{Float64}
     σ̃::Vector{Float64}
+end
 
-    #exponent parameters
+struct ExponentialParameters
     γ::Vector{Float64}
     λ::Matrix{Float64}
     μ::Vector{Float64}
@@ -65,12 +56,14 @@ struct GeneralisedParameters
     ψ::Vector{Float64}
 end
 
-function get_structural_params(p::GeneralisedParameters)
-    return p.β,p.χ,p.ρ,p.ρ̃,p.σ,p.σ̃
-end
+"""
+    GeneralisedParameters
 
-function get_exponential_params(p::GeneralisedParameters)
-    return p.γ, p.λ, p.μ, p.ϕ, p.ψ
+Type to contain the parameters for the normalised model.
+"""
+struct GeneralisedParameters
+    s::StructuralParameters
+    e::ExponentialParameters
 end
 
 abstract type  AbstractCommunity end
@@ -81,9 +74,11 @@ abstract type  AbstractCommunity end
 Type containing parameters defining a community including its interaction matrix and a vector of species within.
 """
 struct Community <: AbstractCommunity
+    N::Int64
     A::Matrix{Float64}
     sp::Vector{Species}
     ids::Vector{UUID}
+    n::Vector{Float64}
     T::Float64
     R::Float64
 end
@@ -94,9 +89,11 @@ end
 Type containing parameters defining a community including its interaction matrix and a vector of species within.
 """
 struct ParameterisedCommunity <: AbstractCommunity
+    N::Int64
     A::Matrix{Float64}
     sp::Vector{Species}
     ids::Vector{UUID}
+    n::Vector{Float64}
     T::Float64
     R::Float64
     p::GeneralisedParameters

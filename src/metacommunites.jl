@@ -28,7 +28,7 @@ function metacommuntiy(coms::Array{T}) where T <: AbstractCommunity
         for j = eachindex(T_mat)
             #calculate distance matrix
             D[i,j] = T_mat[j] - T_mat[i]
-            D[i,j] = D[i,j] <= 0 ? Inf : D[i,j]
+            D[i,j] = D[i,j] < 0 ? Inf : D[i,j]
         end
     end
 
@@ -64,18 +64,32 @@ Contstruct a stable metacommunity by resampling communties till they are stable.
 """
 function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat; T_range::Float64 = 0.1, R::Float64=42.0, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100, verbose = false, vk = 5)
     #inital communty generation
-    mc = metacommuntiy(sp_vec, N, T_mat, T_range=T_range, R=R)
-    psw = proportion_stable_webs(mc , N_trials = N_trials)
-    coms = mc.coms
+    #create temperature lookup
+    T_vals = unique(T_mat) 
+    T_lookup = Dict(T => Species[] for T = T_vals)
+    for sp = sp_vec
+        for T = T_vals
+            if sp.Tpk < (T + T_range) && sp.Tpk > T - T_range
+                push!(T_lookup[T], sp)
+            end
+        end
+    end
 
-    #resample unstable communties
+
+    #proportion stable webs
+    psw = zeros(size(T_mat))
+    coms = similar(T_mat, Community)
+    J = zeros(N,N)
+
+    #resample communties
     k = 0
     while (k < max_draws) && any(psw .< psw_threshold)
        #replace unstable communtiy
-        for i = eachindex(psw)
+        for i = eachindex(T_mat)
             if psw[i] .< psw_threshold
-                coms[i] = community(sp_vec, N , T=coms[i].T, T_range=T_range, R=R) 
-                psw[i] = proportion_stable_webs(coms[i], N_trials = N_trials)
+                sp_indx = rand(T_lookup[T_mat[i]], N)
+                coms[i] = community(sp_indx, T = T_mat[i], R = R) 
+                psw[i] = proportion_stable_webs!(J, coms[i], N_trials = N_trials)
             end
         end
         
@@ -87,6 +101,37 @@ function stable_metacommunity(sp_vec::Vector{Species}, N::Int64, T_mat; T_range:
     mc = metacommuntiy(coms)
 
     return(mc)
+end
+
+function stable_metacommunity(N::Int64, C::Float64, T_mat; T_range::Float64 = 0.1, R::Float64=42.0, psw_threshold::Float64 = 0.9, N_trials::Int = 100, max_draws::Int = 100, verbose = false, vk = 5)
+    #proportion stable webs
+    psw = zeros(size(T_mat))
+    coms = similar(T_mat, Community)
+    J = zeros(N,N)
+
+     #resample communties
+     k = 0
+     while (k < max_draws) && any(psw .< psw_threshold)
+        #replace unstable communtiy
+         for i = eachindex(T_mat)
+             if psw[i] .< psw_threshold
+                 sp_indx = species(C, fill(T_mat[i], N), N)
+                 coms[i] = community(sp_indx, T = T_mat[i], R = R) 
+                 #remove isolated 
+                #  isolated = 
+                 psw[i] = proportion_stable_webs!(J, coms[i], N_trials = N_trials)
+             end
+         end
+         
+         verbose && k % vk == 0 && println("draw:", k, " psw: ", psw)
+ 
+         k += 1
+     end
+
+     mc = metacommuntiy(coms)
+
+    return(mc)
+
 end
 
 function stable_metacommunity_p(sp_vec::Vector{Species}, N::Int64, T_mat; T_range::Float64 = 0.1, R::Float64=42.0, N_trials::Int = 100, max_draws::Int = 100, verbose = false, vk = 5)
@@ -122,19 +167,27 @@ function stable_metacommunity_p(sp_vec::Vector{Species}, N::Int64, T_mat; T_rang
 end
 
 #functions
+
+function remove_sp_meta!(mc::MetaCommunity, a, id)
+    mc.coms[a] = remove_species(mc.coms[a], id)
+    
+    #update loc
+    filter!(x -> x != a, mc.sp_loc[id])
+end
+
 """
     move_sp_meta!(mc::MetaCommunity, a, b, id)
 
 Moves species with `id` from community a to b in a metacommuntiy. a and b are the  1-D indexes of the communties. 
 """
 function move_sp_meta!(mc::MetaCommunity, a, b, id)
-    @assert !(id in mc.coms[b].ids) "Species with `id` is already in communtiy b"
     mc.coms[a], mc.coms[b] = move_species(mc.coms[a], mc.coms[b], id)
 
     #update loc
     append!(mc.sp_loc[id], b)
     filter!(x -> x != a, mc.sp_loc[id])
 end
+
 
 """
     multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5)
@@ -144,52 +197,62 @@ Disperse multiple species at once. Modifies a MetaCommunity object in place. The
 
 2) Communtiy selection
 """
-function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, K = 5, verbose = false)
-    @assert p_dispersal ∈ [:k, :p, :r]
+function multiple_dispersal!(mc; p_dispersal = :p, d_dispersal = :p, verbose = false, αp = 0.75, αd = 0.75)
+    @assert p_dispersal ∈ [:p, :r, :a]
     @assert d_dispersal ∈ [:p, :r]
     check_metacommunity(mc)
 
-    #calculate mass +ß rate
-   
-    M = [mc.R ^ sp.n for sp = mc.sp]
-    d0 = -log(1 - 0.9) / (mc.R^0.75)
-    λ_p = d0 .* (M .^ 0.75)
 
-    #sample species to disperse
-    if p_dispersal == :r #uniform random
-        ids = sample(mc.sp_id, K, replace = false)
-    elseif p_dispersal == :k #K samples
-        ids = sample(mc.sp_id,  Weights(1 .- exp.( -λ_p)), K)
-    elseif p_dispersal == :p #probabalistic
-        p = 1 .- exp.( -λ_p)
-        ids = mc.sp_id[findall(rand(length(p)) .< p)]
-    end
-
-    #get from locations
-    from = sample.(get.(Ref(mc.sp_loc), ids, 0))
-    
-    if verbose 
-        println(" moving:", length(from))
-    end
-    
-    #sample distances
-    d0 = -log(1 - 0.9) / 0.5(mc.R^-0.75)
-    λ_d = d0 .* (M .^ -0.75)
-    for k = eachindex(from) #loop over species
-        if d_dispersal == :r
-            #randomly sample
-            to = sample(1: length(mc.D[from[k],:]))
-        elseif d_dispersal == :p
-            #sample from Exponential Distribution upwards
-            d = rand(Exponential(1 / λ_d[k]))
-            to = findmin((mc.D[from[k],:] .- d).^2)[2]
+    to_disperse = Vector{Tuple{UUID, Pair{Int,Int}}}()
+    #Loop over communities
+    for (f,c) = enumerate(mc.coms)
+        M = c.R .^ c.n #calculate mass
+        
+        #calculate probability of dispersal in C
+        if p_dispersal == :a
+            p = ones(c.N)
+        elseif p_dispersal == :r
+            p = fill(mean(c.n), c.N)
+        elseif p_dispersal == :p
+            # λ = 0.05 .* M .^ αp
+            # p = 1 - exp(-λ)
+            p = c.n
         end
+
+        #test who will disperse
+        to_d = rand(c.N) .< p
+
+        for sp = 1:c.N
+            if to_d[sp]
+                #calculate dispersal distance
+                if d_dispersal == :p
+                    d = 0.5 * (M[sp]/mc.R)^αd
+                    t = findmin(abs.(mc.D[f,:] .- d))[2]
+                elseif d_dispersal == :r
+                    t = rand(f:length(mc.T_mat))
+                end
+
+                push!(to_disperse, (c.ids[sp], f => t))
+            end
+        end
+    
+    end
+
+
+    for td = to_disperse
+        f,t,id = td[2][1], td[2][2], td[1]
         #if sp is not there add it
-        if !(ids[k] in mc.coms[to].ids)
-            move_sp_meta!(mc, from[k], to, ids[k])
+        if t != length(mc.T_mat)
+            if !(id in mc.coms[t].ids) && (id in mc.coms[f].ids)
+                move_sp_meta!(mc, f, t, id)
+            end
+        else
+            remove_sp_meta!(mc,f,id)
         end
-        check_metacommunity(mc)
     end
+    
+    [check_web!(c) for c = mc.coms]
+    check_metacommunity(mc)
 
 end
 
